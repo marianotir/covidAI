@@ -13,14 +13,13 @@ Covid Predictions App
 import dash
 import dash_core_components as dcc
 import dash_html_components as html
-from dash.dependencies import Input, Output, State
+from dash.dependencies import Input, Output
 
 #dataframe manipulation libraries
 import pandas as pd
-from pandas import concat
-import numpy as np
 from datetime import timedelta
 from matplotlib import pyplot
+
 
 #arima models libraries
 from statsmodels.tsa.arima_model import ARIMA
@@ -51,7 +50,7 @@ Country = 'Spain'
 #------------------------------
 
 
-def load():
+def load(Country):
     
     url = "https://www.ecdc.europa.eu/sites/default/files/documents/COVID-19-geographic-disbtribution-worldwide.xlsx"
     
@@ -110,7 +109,7 @@ def model_covid(df_covid):
     # Shift and conact to generate inputs for the timeseries problem
     # split into train and test sets
     X = dataset.values
-    size = int(len(X) * 0.36)
+    size = int(len(X) * 0.86)
     train, test = X[0:size], X[size:len(X)]
     history = [x for x in train]
     predictions = list()
@@ -226,13 +225,23 @@ def model_covid(df_covid):
 # Call the functions 
 #-----------------------------
 
-def run_covid():
+def run_covid(Country):
     
-    df_covid = load()
+    df_covid = load(Country)
     
     df = model_covid(df_covid)
     
     return df
+
+#-----------------------------
+# Load Data
+#-----------------------------
+
+url = "https://www.ecdc.europa.eu/sites/default/files/documents/COVID-19-geographic-disbtribution-worldwide.xlsx"
+
+data = pd.read_excel(url,sheet_name='COVID-19-geographic-disbtributi')
+
+countries = data.countriesAndTerritories.unique()
 
 
 #-----------------------------
@@ -241,9 +250,13 @@ def run_covid():
 
 children_text_H1 = "Covid Prediction in Country"
 subtitle = "Covid 19 prediction using ARIMA. Prediction over cumulative cases."
+
+children_text_H2 = "Select the country to make predictions"
+
+children_text_H3 = "Click the buttom bellow to make predictions over the country selected"
+
 title1 = "Covid 19 prediction for last updated day:"
 title2 = "Covid 19 prediction for day"
-
 
 
 external_stylesheets = ['https://codepen.io/chriddyp/pen/bWLwgP.css']
@@ -258,15 +271,29 @@ app.layout = html.Div(children=[
         subtitle
     ),
     
+     html.H3(children= 
+        children_text_H2
+    ),
+    
     html.Hr(),
     
-    html.Button('Click to train', id='button'),
+    dcc.Dropdown(
+        id = "input",
+        options=[{'label': i, 'value': i} for i in countries],
+        value=''
+    ),
+      
+    html.Div(id='dd-output-container'),
+    
+    html.Hr(),
+    
+         html.H3(children= 
+        children_text_H3
+    ),
+    
+    html.Button('Click to predict', id='button'),
     html.H3(id='button-clicks'),
 
-    html.Hr(),
-    
-   # html.Div(id='output'),
-    
     html.Hr(),
    
     dcc.Graph(id='graph1'),
@@ -274,51 +301,27 @@ app.layout = html.Div(children=[
     
     dcc.Graph(id='graph2'),
     
+    
     dcc.Graph(id='graph3'),
-   
 
 
 ])
 
 
-# =============================================================================
-# @app.callback(
-#     Output('graph1', 'figure'),
-#     [Input('button', 'n_clicks')])
-# def clicks(n_clicks):
-#     
-#     fig = plotly
-#     
-#     fig.append_trace({
-#         'x': data['time'],
-#         'y': data['Altitude']})
-#     
-#     
-#     return fig
-# =============================================================================
 
 @app.callback([Output('graph1', 'figure'),
               Output('graph2', 'figure'),
               Output('graph3', 'figure'),
               Output('H1', 'children')],
-              [Input('button', 'n_clicks')])
+              [Input('button', 'n_clicks'),
+               Input('input', 'value')])
 
-def update_figure(n_clicks):
+def update_figure(n_clicks,value):
     
-    df = run_covid()
-    
- #   df_covid = load()
-    
-  #  df = model_covid(df_covid)
+    if n_clicks > 0:
+       df = run_covid(value)
+
      
-# =============================================================================
-#      fig = {
-#                     'data': [
-#                       {'x': [1], 'y': [[5]], 'type': 'bar', 'name': 'Prediction'},
-#                       {'x': [2], 'y': [[2]], 'type': 'bar', 'name': u'Real'},
-#                       ]}
-#     
-# =============================================================================
      
     return  {
                     'data': [
@@ -328,7 +331,7 @@ def update_figure(n_clicks):
                         u'Real'},
                       ],
                     'layout': {
-                      'title': "Covid 19 prediction for last updated day: {}".format(df.Date[0]) 
+                      'title': "Covid 19 prediction for {} on: {}".format(value,df.Date[0]) 
                     }
             } ,  {
                     'data': [
@@ -336,52 +339,22 @@ def update_figure(n_clicks):
                          'Prediction_Tomorrow'}
                       ],
                     'layout': {
-                      'title': "Covid 19 prediction for day: {}".format(df.Tomorrow_Date[0])
+                      'title': "Covid 19 prediction for {} on day: {}".format(value,df.Tomorrow_Date[0])
                     }
-            } , {
+            } ,  {
                     'data': [
                         {'x': [1], 'y': [df.Pred_Future[0]], 'type': 'bar', 'name': 
                          'Prediction_Future'}
                       ],
                     'layout': {
-                      'title': "Expected value in 14 days. Date: {}".format(df.Future_Date[0])
-                    }
-            }, "Covid Prediction in Country: {}".format(Country)  
+                      'title': "Covid 19 prediction in 14 days for {} on day: {}".format(value,df.Future_Date[0])
+                    } 
+                 } , "Covid Prediction in Country: {}".format(value)  
                 
-
 
 
 
 if __name__ == '__main__':
     app.run_server(debug=False,use_reloader=False, threaded=False)
     
-    
-    
-# =============================================================================
-#  '''
-#     dcc.Graph(
-#         id='graph1',
-#         figure={
-#             'data': [
-#                 {'x': [1], 'y': [df.Predicted_Point[0]], 'type': 'bar', 'name': 'Prediction'},
-#                 {'x': [2], 'y': [df.Real_Point[0]], 'type': 'bar', 'name': u'Real'},
-#             ],
-#             'layout': {
-#                 'title': title1 
-#             }
-#         }
-#     ),
-# 
-#     dcc.Graph(
-#         id='graph2',
-#         figure={
-#             'data': [
-#                 {'x': [1], 'y': [df.Pred_Tomorrow[0]], 'type': 'bar', 'name': 'Prediction_Tomorrow'}
-#             ],
-#             'layout': {
-#                 'title': title2 
-#             }
-#         }
-#     ),'''
-# =============================================================================
 
